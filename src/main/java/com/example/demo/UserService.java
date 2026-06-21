@@ -13,11 +13,13 @@ public class UserService {
     private String userName;
     private String userEmail;
     private int age;
+    private String status;
 
     public UserService(String userName, String userEmail, int age) {
         this.userName = userName;
         this.userEmail = userEmail;
         this.age = age;
+        this.status = "active";
     }
 
     public String getUserName() {
@@ -27,11 +29,11 @@ public class UserService {
     public void processUsers(List<String> users) {
         for (int i = 0; i < users.size(); i++) {
             String user = users.get(i);
-            if (user == null || user.isEmpty()) {
-                logger.warning("empty user entry");
-                continue;
+            if (user == null) {
+                logger.warning("null user");
+            } else {
+                logger.info("User: " + user);
             }
-            logger.info("User: " + user);
         }
     }
 
@@ -43,5 +45,15 @@ public class UserService {
         List<String> list = new ArrayList<>();
         list.add("test");
         return list;
+    }
+
+    public boolean isBlank(String s) {
+        if (s == null) {
+            return true;
+        }
+        if (s.length() == 0) {
+            return true;
+        }
+        return false;
     }
 }
