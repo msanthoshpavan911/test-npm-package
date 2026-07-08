@@ -1,0 +1,152 @@
+# Ready-to-paste files for SIG + SCS-Commons (v2 — both directions)
+
+Fill in the `[bracketed]` bits. This version covers BOTH directions:
+- API/controller → which SCS-Commons modules it uses (from before)
+- SCS-Commons module → which SIG APIs use it, and what else it needs (new)
+
+---
+
+## FILE 1: `.github/copilot-instructions.md`
+Place at the root of the parent folder containing both `SIG` and `SCS-Commons`.
+
+```markdown
+# Workspace overview — SIG + SCS-Commons
+
+This workspace has two related projects:
+
+## SIG (`[path/to/SIG]`)
+- Contains the actual APIs — organized as controllers, each exposing one
+  or more REST endpoints.
+- Each API/controller, depending on its requirement, calls into one or more
+  submodules from SCS-Commons (validation, common DTOs, auth helpers, audit
+  logging, etc. — describe the real categories you have).
+
+## SCS-Commons (`[path/to/SCS-Commons]`)
+- A multi-module reusable library. Each submodule under
+  `[path, e.g. scs-commons/modules/*]` serves one specific purpose and is
+  designed to be reused across any API in SIG.
+- Some submodules depend on other SCS-Commons submodules internally
+  (e.g. the audit-logging module might require the common-DTO module).
+  These internal dependencies matter — always surface them.
+
+## How they connect
+- SIG depends on SCS-Commons via [Maven module dependency / Gradle / internal
+  artifact repo — describe the actual mechanism].
+- A controller in SIG calls into SCS-Commons through
+  [service classes / injected beans / utility calls — describe the pattern].
+
+## Standing instruction A — when I ask about an API/controller in SIG
+Whenever I ask about one API, a group of APIs, or a specific controller
+(and its endpoints), always structure your answer as:
+
+1. **Controller & endpoint summary** — what each endpoint does, HTTP
+   method, path, request/response shape.
+2. **Business logic** — what the controller/service actually does,
+   in plain terms.
+3. **SCS-Commons usage** — for every SCS-Commons submodule this
+   controller/endpoint calls into:
+   - which submodule it is
+   - what that submodule does (in general, not just for this API)
+   - how this specific endpoint uses it (which method, with what purpose)
+4. If the controller uses NO SCS-Commons modules, say so explicitly rather
+   than omitting the section.
+
+## Standing instruction B — when I ask about a SCS-Commons module
+Whenever I ask about a specific SCS-Commons module/submodule (e.g. "who
+uses the audit-logging module" or "explain the validation module"), always
+structure your answer as:
+
+1. **What the module does** — its purpose and public API (key
+   classes/methods a consumer would call).
+2. **Consumers in SIG** — search all of SIG and list every API/controller
+   that actually uses this module, with the file path and which method it
+   calls. If none currently use it, say so explicitly ("not currently
+   consumed by any SIG API").
+3. **Internal SCS-Commons dependencies** — does this module require any
+   OTHER SCS-Commons submodule to function (e.g. imports it, extends a
+   base class from it, needs it configured first)? List each one and why
+   it's required. If it has no such dependencies, say so explicitly.
+4. **How to use it** — a real usage example, ideally pulled from an actual
+   SIG consumer found in step 2; if there are no consumers yet, note that
+   and give the minimal correct usage based on the module's own code/tests.
+
+## General rules for both directions
+- Never guess a relationship — trace it from actual code (imports,
+  dependency injection, build files, method calls). Cite file paths.
+- I'm still learning both codebases — show your work, don't just assert.
+
+## Tech stack
+[e.g. Java 17, Spring Boot 3.x, Maven multi-module]
+```
+
+---
+
+## FILE 2: `.github/prompts/explain-api.prompt.md`
+Invoke with `/explain-api` — for the SIG → SCS-Commons direction.
+
+```markdown
+---
+mode: agent
+---
+Explain the following in SIG: ${input:target:Which controller, API, or set of endpoints? e.g. "OrderController" or "OrderController's /orders/{id} and /orders/{id}/cancel endpoints"}
+
+Follow Standing instruction A from copilot-instructions.md exactly:
+1. Controller & endpoint summary (method, path, request/response)
+2. Business logic in plain terms
+3. Every SCS-Commons submodule this code actually calls into — trace it
+   from real imports/dependency injection/method calls, don't guess.
+   For each submodule: what it does generally, and how this specific
+   endpoint uses it.
+4. If a section doesn't apply (e.g. no SCS-Commons usage), say so
+   explicitly instead of skipping it silently.
+
+Cite file paths for every claim.
+```
+
+---
+
+## FILE 3: `.github/prompts/explain-module-usage.prompt.md`
+Invoke with `/explain-module-usage` — for the SCS-Commons → SIG direction (new).
+
+```markdown
+---
+mode: agent
+---
+Explain the following SCS-Commons module: ${input:module:Which SCS-Commons module/submodule? e.g. "audit-logging" or "common-validation"}
+
+Follow Standing instruction B from copilot-instructions.md exactly:
+1. What this module does — purpose and public API.
+2. Every SIG API/controller that actually uses this module — search the
+   whole SIG project, don't assume. Cite file path + the exact method call.
+   If nothing currently uses it, say so explicitly.
+3. Any OTHER SCS-Commons submodule this module itself depends on to work
+   (internal dependency), with the reason why. If none, say so explicitly.
+4. A real usage example — pulled from an actual SIG consumer if one
+   exists; otherwise the minimal correct usage based on the module's code.
+
+Cite file paths for every claim.
+```
+
+---
+
+## Day-to-day usage — both directions
+
+**"Which SCS-Commons modules does this API use?"**
+```
+/explain-api OrderController
+```
+
+**"Who's using this module, and what does it need?"**
+```
+/explain-module-usage audit-logging
+```
+
+Because both standing instructions live in `copilot-instructions.md`
+(always-on), even a plain question like *"what does the audit-logging
+module need to work?"* — without using the slash command — should still
+trigger the full structured answer. The prompt files are just consistent
+shortcuts.
+
+**Sanity check after setup:** ask one question each direction, then check
+the References panel on the reply to confirm `copilot-instructions.md`
+is listed as a loaded reference.
