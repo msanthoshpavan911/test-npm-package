@@ -7,29 +7,56 @@ available indices with their document counts and sizes.
 Usage:
     python scripts/check_opensearch.py
 
-Override defaults via env vars:
-    OPENSEARCH_HOST=localhost OPENSEARCH_PORT=9200 python scripts/check_opensearch.py
+Environment variables:
+    OPENSEARCH_HOST      Host (default: localhost)
+    OPENSEARCH_PORT      Port (default: 9200)
+    OPENSEARCH_USER      Username for basic auth (default: none)
+    OPENSEARCH_PASSWORD  Password for basic auth (default: none)
+    OPENSEARCH_USE_SSL   Set to "true" to enable TLS (default: false)
+    OPENSEARCH_CA_CERTS  Path to CA certificate file (optional, for self-signed certs)
+
+Examples:
+    # Local POC (no auth)
+    python scripts/check_opensearch.py
+
+    # Secured / enterprise
+    OPENSEARCH_HOST=prod-host OPENSEARCH_USER=admin OPENSEARCH_PASSWORD=secret OPENSEARCH_USE_SSL=true python scripts/check_opensearch.py
 """
 
 import asyncio
-import json
 import os
 
 from opensearchpy import AsyncOpenSearch
 
 
-OPENSEARCH_HOST = os.getenv("OPENSEARCH_HOST", "localhost")
-OPENSEARCH_PORT = int(os.getenv("OPENSEARCH_PORT", "9200"))
+OPENSEARCH_HOST     = os.getenv("OPENSEARCH_HOST", "localhost")
+OPENSEARCH_PORT     = int(os.getenv("OPENSEARCH_PORT", "9200"))
+OPENSEARCH_USER     = os.getenv("OPENSEARCH_USER", "")
+OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "")
+OPENSEARCH_USE_SSL  = os.getenv("OPENSEARCH_USE_SSL", "false").lower() == "true"
+OPENSEARCH_CA_CERTS = os.getenv("OPENSEARCH_CA_CERTS", "")
+
+
+def _build_client() -> AsyncOpenSearch:
+    kwargs = {
+        "hosts": [{"host": OPENSEARCH_HOST, "port": OPENSEARCH_PORT}],
+        "use_ssl": OPENSEARCH_USE_SSL,
+        "verify_certs": OPENSEARCH_USE_SSL,   # only verify when SSL is on
+    }
+    if OPENSEARCH_USER and OPENSEARCH_PASSWORD:
+        kwargs["http_auth"] = (OPENSEARCH_USER, OPENSEARCH_PASSWORD)
+    if OPENSEARCH_CA_CERTS:
+        kwargs["ca_certs"] = OPENSEARCH_CA_CERTS
+    return AsyncOpenSearch(**kwargs)
 
 
 async def main():
-    client = AsyncOpenSearch(
-        hosts=[{"host": OPENSEARCH_HOST, "port": OPENSEARCH_PORT}],
-        use_ssl=False,
-        verify_certs=False,
-    )
+    client = _build_client()
 
-    print(f"\n🔌 Connecting to OpenSearch at {OPENSEARCH_HOST}:{OPENSEARCH_PORT} ...\n")
+    auth_label = f"{OPENSEARCH_USER}@" if OPENSEARCH_USER else ""
+    ssl_label  = " [SSL]" if OPENSEARCH_USE_SSL else ""
+    print(f"\n🔌 Connecting to OpenSearch at {auth_label}{OPENSEARCH_HOST}:{OPENSEARCH_PORT}{ssl_label} ...\n")
+
 
     # ── 1. Cluster health ───────────────────────────────────────────────────
     try:
